@@ -19,22 +19,40 @@ var LoginCmd = &cobra.Command{
 	Run:   loginCmdHandler,
 }
 
-func loginCmdHandler(cmd *cobra.Command, args []string) {
-	fmt.Print("Enter the phone number associated with your fold account: ")
-	phone := bufio.NewScanner(os.Stdin)
-	phone.Scan()
+func init() {
+	LoginCmd.Flags().StringP("phone", "p", "", "Phone number (without +91 prefix)")
+	LoginCmd.Flags().StringP("otp", "o", "", "OTP received via SMS (requires --phone)")
+}
 
-	err := api.Login("+91" + phone.Text())
-	if err != nil {
-		log.Error().Err(err).Msg("Login response: ")
-		runtime.Goexit()
+func loginCmdHandler(cmd *cobra.Command, args []string) {
+	phoneFlag, _ := cmd.Flags().GetString("phone")
+	otpFlag, _ := cmd.Flags().GetString("otp")
+
+	var phoneNum string
+	if phoneFlag != "" {
+		phoneNum = phoneFlag
+	} else {
+		fmt.Print("Enter the phone number associated with your fold account: ")
+		phone := bufio.NewScanner(os.Stdin)
+		phone.Scan()
+		phoneNum = phone.Text()
 	}
 
-	fmt.Print("Login request successful, enter OTP: ")
-	otp := bufio.NewScanner(os.Stdin)
-	otp.Scan()
+	// If --otp is not provided, request OTP first
+	if otpFlag == "" {
+		err := api.Login("+91" + phoneNum)
+		if err != nil {
+			log.Error().Err(err).Msg("Login response: ")
+			runtime.Goexit()
+		}
 
-	access, refresh, err := api.VerifyOtp("+91"+phone.Text(), otp.Text())
+		fmt.Print("Login request successful, enter OTP: ")
+		otp := bufio.NewScanner(os.Stdin)
+		otp.Scan()
+		otpFlag = otp.Text()
+	}
+
+	access, refresh, err := api.VerifyOtp("+91"+phoneNum, otpFlag)
 	if err != nil {
 		log.Error().Err(err).Msg("Verify otp response: ")
 		runtime.Goexit()

@@ -126,7 +126,7 @@ func Transactions(uuid string, since time.Time, till time.Time) (TransactionsRet
 
 	RefreshOrFail()
 
-	req, _ := APIRequest("GET", Url("/v1/users/"+uuid+"/transactions"), nil)
+	req, _ := APIRequest("GET", Url("/v2/users/"+uuid+"/transactions"), nil)
 
 	randomCursor := randomCursor() + "," + till.Format(time.RFC3339)
 	log.Debug().Msg("Random cursor generated: " + randomCursor)
@@ -153,13 +153,18 @@ func Transactions(uuid string, since time.Time, till time.Time) (TransactionsRet
 
 		data := TransactionsResponse{}
 		json.NewDecoder(resp.Body).Decode(&data)
-		log.Debug().Msgf("Transactions response body: %+v", data.Data.Transactions[0].TxnTimestamp)
 
 		var ret TransactionsReturn
 		ret.Transactions = make([]FilteredTransactions, 0)
+
+		if len(data.Data.Transactions) == 0 {
+			return ret, nil
+		}
+
+		log.Debug().Msgf("Transactions response body: %+v", data.Data.Transactions[0].TxnTimestamp)
 		ret.Transactions = append(ret.Transactions, filterTransactions(data, since)...)
 
-		for data.Data.Transactions[len(data.Data.Transactions)-1].TxnTimestamp.After(since) {
+		for len(data.Data.Transactions) > 0 && data.Data.Transactions[len(data.Data.Transactions)-1].TxnTimestamp.After(since) {
 			log.Debug().Msg("Fetching older transactions")
 
 			log.Debug().Msg("New cursor base64: " + data.Data.After)
@@ -167,22 +172,26 @@ func Transactions(uuid string, since time.Time, till time.Time) (TransactionsRet
 			req.URL.RawQuery = q.Encode()
 
 			resp, err := Client.Do(req)
-			log.Debug().Msgf("Transactions response status: %+v", resp.StatusCode)
-
 			if err != nil {
 				log.Warn().Msg("Failed to fetch older transactions")
 				break
-			} else {
-				if resp.StatusCode/100 != 2 {
-					log.Warn().Msgf("Failed to fetch older transactions, status code: %+v", resp.StatusCode)
-					break
-				}
-
-				json.NewDecoder(resp.Body).Decode(&data)
-				log.Debug().Msgf("Transactions response body: %+v", data.Data.Transactions[0].TxnTimestamp)
-
-				ret.Transactions = append(ret.Transactions, filterTransactions(data, since)...)
 			}
+
+			log.Debug().Msgf("Transactions response status: %+v", resp.StatusCode)
+
+			if resp.StatusCode/100 != 2 {
+				log.Warn().Msgf("Failed to fetch older transactions, status code: %+v", resp.StatusCode)
+				break
+			}
+
+			json.NewDecoder(resp.Body).Decode(&data)
+
+			if len(data.Data.Transactions) == 0 {
+				break
+			}
+
+			log.Debug().Msgf("Transactions response body: %+v", data.Data.Transactions[0].TxnTimestamp)
+			ret.Transactions = append(ret.Transactions, filterTransactions(data, since)...)
 		}
 
 		return ret, nil
