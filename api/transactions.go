@@ -74,13 +74,19 @@ type TransactionsResponse struct {
 }
 
 type FilteredTransactions struct {
-	UUID           string    `json:"uuid"`
-	Amount         float64   `json:"amount"`
-	CurrentBalance float64   `json:"current_balance"`
-	TxnTimestamp   time.Time `json:"txn_timestamp"`
-	Type           string    `json:"type"`
-	Account        string    `json:"account"`
-	Merchant       string    `json:"merchant"`
+	UUID                 string    `json:"uuid"`
+	Amount               float64   `json:"amount"`
+	CurrentBalance       float64   `json:"current_balance"`
+	TxnTimestamp         time.Time `json:"txn_timestamp"`
+	Type                 string    `json:"type"`
+	Account              string    `json:"account"`
+	Merchant             string    `json:"merchant"`
+	Category             string    `json:"category"`
+	Tags                 string    `json:"tags"`
+	Mode                 string    `json:"mode"`
+	Reference            string    `json:"reference"`
+	Notes                string    `json:"notes"`
+	ExcludedFromCashFlow bool      `json:"excluded_from_cash_flow"`
 }
 
 type TransactionsReturn struct {
@@ -102,18 +108,38 @@ func filterTransactions(raw TransactionsResponse, since time.Time) []FilteredTra
 		}
 
 		transaction := FilteredTransactions{
-			UUID:           t[i].UUID,
-			Amount:         t[i].Amount,
-			Type:           t[i].Type,
-			Account:        t[i].FinancialInformationProvider.Name,
-			Merchant:       t[i].Narration,
-			TxnTimestamp:   t[i].TxnTimestamp,
-			CurrentBalance: t[i].CurrentBalance,
+			UUID:                 t[i].UUID,
+			Amount:               t[i].Amount,
+			Type:                 t[i].Type,
+			Account:              t[i].FinancialInformationProvider.Name,
+			Merchant:             t[i].Narration,
+			TxnTimestamp:         t[i].TxnTimestamp,
+			CurrentBalance:       t[i].CurrentBalance,
+			Mode:                 t[i].Mode,
+			Reference:            t[i].Reference,
+			ExcludedFromCashFlow: t[i].ExcludedFromCashFlow,
 		}
 
 		// Use Fold's F1 classifier if this transaction was classified
 		if t[i].Merchant != nil {
 			transaction.Merchant = t[i].Merchant.(string)
+		}
+
+		// Preserve category if available
+		if t[i].Category != nil {
+			transaction.Category = t[i].Category.(string)
+		}
+
+		// Preserve notes if available
+		if t[i].Notes != nil {
+			transaction.Notes = t[i].Notes.(string)
+		}
+
+		// Preserve tags as JSON string if available
+		if t[i].Tags != nil {
+			if tagsBytes, err := json.Marshal(t[i].Tags); err == nil {
+				transaction.Tags = string(tagsBytes)
+			}
 		}
 
 		transactions = append(transactions, transaction)

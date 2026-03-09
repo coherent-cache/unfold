@@ -88,13 +88,19 @@ func printTransactions(t api.FilteredTransactions) {
 
 func writeToDb(t api.FilteredTransactions) {
 	db.Conn.Clauses(clause.OnConflict{UpdateAll: true}).Create(&db.Transactions{
-		UUID:           t.UUID,
-		Timestamp:      t.TxnTimestamp,
-		Amount:         t.Amount,
-		Type:           t.Type,
-		Merchant:       t.Merchant,
-		CurrentBalance: t.CurrentBalance,
-		Account:        t.Account,
+		UUID:                 t.UUID,
+		Timestamp:            t.TxnTimestamp,
+		Amount:               t.Amount,
+		Type:                 t.Type,
+		Merchant:             t.Merchant,
+		CurrentBalance:       t.CurrentBalance,
+		Account:              t.Account,
+		Category:             t.Category,
+		Tags:                 t.Tags,
+		Mode:                 t.Mode,
+		Reference:            t.Reference,
+		Notes:                t.Notes,
+		ExcludedFromCashFlow: t.ExcludedFromCashFlow,
 	})
 }
 
