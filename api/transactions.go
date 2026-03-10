@@ -85,19 +85,25 @@ type FilteredTransactions struct {
 	Account              string    `json:"account"`
 	AccountID            string    `json:"account_id"`
 	Merchant             string    `json:"merchant"`
+	MerchantAddress      string    `json:"merchant_address"`
 	Narration            string    `json:"narration"`
 	Category             string    `json:"category"`
 	CategoryID           string    `json:"category_id"`
 	Subcategory          string    `json:"subcategory"`
 	Tags                 string    `json:"tags"`
+	Kind                 string    `json:"kind"`
 	Mode                 string    `json:"mode"`
 	Reference            string    `json:"reference"`
 	Notes                string    `json:"notes"`
 	ExcludedFromCashFlow bool      `json:"excluded_from_cash_flow"`
+	IsBookmarked         bool      `json:"is_bookmarked"`
 	Summary              string    `json:"summary"`
 	TransactionID        string    `json:"transaction_id"`
 	RefundStatus         string    `json:"refund_status"`
 	RefundReceivedOn     string    `json:"refund_received_on"`
+	BeforeFoldAccount    bool      `json:"before_fold_account"`
+	Via                  string    `json:"via"`
+	AccountIn            string    `json:"account_in"`
 	ContactID            string    `json:"contact_id"`
 	GroupIDs             string    `json:"group_ids"`
 	F1PredictedCategory  bool      `json:"f1_predicted_category"`
@@ -132,12 +138,15 @@ func filterTransactions(raw TransactionsResponse, since time.Time) []FilteredTra
 			Narration:            t[i].Narration,
 			TxnTimestamp:         t[i].TxnTimestamp,
 			CurrentBalance:       t[i].CurrentBalance,
+			Kind:                 t[i].Kind,
 			Mode:                 t[i].Mode,
 			Reference:            t[i].Reference,
 			ExcludedFromCashFlow: t[i].ExcludedFromCashFlow,
+			IsBookmarked:         t[i].IsBookmarked,
 			Summary:              t[i].Summary,
 			TransactionID:        t[i].TransactionID,
 			RefundStatus:         t[i].RefundStatus,
+			BeforeFoldAccount:    t[i].BeforeFoldAccount,
 		}
 
 		// Use Fold's F1 classifier if this transaction was classified
@@ -155,6 +164,25 @@ func filterTransactions(raw TransactionsResponse, since time.Time) []FilteredTra
 
 		// Preserve subcategory (category_icon_name) — Fold's 2nd-tier classification
 		transaction.Subcategory = t[i].CategoryIconName
+
+		// Preserve merchant_address if available
+		if t[i].MerchantAddress != nil {
+			transaction.MerchantAddress = t[i].MerchantAddress.(string)
+		}
+
+		// Preserve via if available
+		if t[i].Via != nil {
+			if viaBytes, err := json.Marshal(t[i].Via); err == nil {
+				transaction.Via = string(viaBytes)
+			}
+		}
+
+		// Preserve account_in if available
+		if t[i].AccountIn != nil {
+			if aiBytes, err := json.Marshal(t[i].AccountIn); err == nil {
+				transaction.AccountIn = string(aiBytes)
+			}
+		}
 
 		// Preserve notes if available
 		if t[i].Notes != nil {
