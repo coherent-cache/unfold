@@ -12,10 +12,21 @@ type Transactions struct {
 	Type                 string
 	Account              string
 	Merchant             string
+	Narration            string
 	Category             string
+	CategoryID           string
 	Tags                 string
 	Mode                 string
 	Reference            string
 	Notes                string
 	ExcludedFromCashFlow bool
+	Summary              string
+	TransactionID        string
+	RefundStatus         string
+	RefundReceivedOn     string
+	ContactID            string
+	GroupIDs             string
+	F1PredictedCategory  bool
+	F1PredictedMerchant  bool
+	AccountID            string
 }

@@ -29,6 +29,7 @@ type TransactionsResponse struct {
 			Type                         string      `json:"type"`
 			Narration                    string      `json:"narration"`
 			Category                     interface{} `json:"category"`
+			CategoryID                   string      `json:"category_id"`
 			CategoryIcon                 interface{} `json:"category_icon"`
 			Merchant                     interface{} `json:"merchant"`
 			MerchantIcon                 interface{} `json:"merchant_icon"`
@@ -59,6 +60,7 @@ type TransactionsResponse struct {
 			Receipts             []interface{} `json:"receipts"`
 			GroupIds             interface{}   `json:"group_ids"`
 			ContactID            interface{}   `json:"contact_id"`
+			IsF1Predicted        interface{}   `json:"is_f1_predicted"`
 		} `json:"transactions"`
 		Counts []struct {
 			Date              string `json:"date"`
@@ -80,13 +82,24 @@ type FilteredTransactions struct {
 	TxnTimestamp         time.Time `json:"txn_timestamp"`
 	Type                 string    `json:"type"`
 	Account              string    `json:"account"`
+	AccountID            string    `json:"account_id"`
 	Merchant             string    `json:"merchant"`
+	Narration            string    `json:"narration"`
 	Category             string    `json:"category"`
+	CategoryID           string    `json:"category_id"`
 	Tags                 string    `json:"tags"`
 	Mode                 string    `json:"mode"`
 	Reference            string    `json:"reference"`
 	Notes                string    `json:"notes"`
 	ExcludedFromCashFlow bool      `json:"excluded_from_cash_flow"`
+	Summary              string    `json:"summary"`
+	TransactionID        string    `json:"transaction_id"`
+	RefundStatus         string    `json:"refund_status"`
+	RefundReceivedOn     string    `json:"refund_received_on"`
+	ContactID            string    `json:"contact_id"`
+	GroupIDs             string    `json:"group_ids"`
+	F1PredictedCategory  bool      `json:"f1_predicted_category"`
+	F1PredictedMerchant  bool      `json:"f1_predicted_merchant"`
 }
 
 type TransactionsReturn struct {
@@ -112,12 +125,17 @@ func filterTransactions(raw TransactionsResponse, since time.Time) []FilteredTra
 			Amount:               t[i].Amount,
 			Type:                 t[i].Type,
 			Account:              t[i].FinancialInformationProvider.Name,
+			AccountID:            t[i].AccountID,
 			Merchant:             t[i].Narration,
+			Narration:            t[i].Narration,
 			TxnTimestamp:         t[i].TxnTimestamp,
 			CurrentBalance:       t[i].CurrentBalance,
 			Mode:                 t[i].Mode,
 			Reference:            t[i].Reference,
 			ExcludedFromCashFlow: t[i].ExcludedFromCashFlow,
+			Summary:              t[i].Summary,
+			TransactionID:        t[i].TransactionID,
+			RefundStatus:         t[i].RefundStatus,
 		}
 
 		// Use Fold's F1 classifier if this transaction was classified
@@ -130,6 +148,9 @@ func filterTransactions(raw TransactionsResponse, since time.Time) []FilteredTra
 			transaction.Category = t[i].Category.(string)
 		}
 
+		// Preserve category_id (always a string, not interface{})
+		transaction.CategoryID = t[i].CategoryID
+
 		// Preserve notes if available
 		if t[i].Notes != nil {
 			transaction.Notes = t[i].Notes.(string)
@@ -139,6 +160,33 @@ func filterTransactions(raw TransactionsResponse, since time.Time) []FilteredTra
 		if t[i].Tags != nil {
 			if tagsBytes, err := json.Marshal(t[i].Tags); err == nil {
 				transaction.Tags = string(tagsBytes)
+			}
+		}
+
+		// Preserve refund_received_on if available
+		if t[i].RefundReceivedOn != nil {
+			transaction.RefundReceivedOn = t[i].RefundReceivedOn.(string)
+		}
+
+		// Preserve contact_id if available
+		if t[i].ContactID != nil {
+			transaction.ContactID = t[i].ContactID.(string)
+		}
+
+		// Preserve group_ids as JSON string if available
+		if t[i].GroupIds != nil {
+			if gidBytes, err := json.Marshal(t[i].GroupIds); err == nil {
+				transaction.GroupIDs = string(gidBytes)
+			}
+		}
+
+		// Preserve F1 prediction flags
+		if pred, ok := t[i].IsF1Predicted.(map[string]interface{}); ok {
+			if v, ok := pred["category_or_subcategory"].(bool); ok {
+				transaction.F1PredictedCategory = v
+			}
+			if v, ok := pred["merchant"].(bool); ok {
+				transaction.F1PredictedMerchant = v
 			}
 		}
 

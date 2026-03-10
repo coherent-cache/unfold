@@ -1,6 +1,11 @@
 ## Workspace related
 bin/*
 *.sqlite
+*.sqlite.bak
+
+## Personal financial data (never commit or push)
+fold_raw_all.json
+local.ledger
 
 ## Github
 # If you prefer the allow list template instead of the deny list, see community template:
