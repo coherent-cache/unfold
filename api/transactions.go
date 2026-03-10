@@ -31,6 +31,7 @@ type TransactionsResponse struct {
 			Category                     interface{} `json:"category"`
 			CategoryID                   string      `json:"category_id"`
 			CategoryIcon                 interface{} `json:"category_icon"`
+			CategoryIconName             string      `json:"category_icon_name"`
 			Merchant                     interface{} `json:"merchant"`
 			MerchantIcon                 interface{} `json:"merchant_icon"`
 			MerchantAddress              interface{} `json:"merchant_address"`
@@ -87,6 +88,7 @@ type FilteredTransactions struct {
 	Narration            string    `json:"narration"`
 	Category             string    `json:"category"`
 	CategoryID           string    `json:"category_id"`
+	Subcategory          string    `json:"subcategory"`
 	Tags                 string    `json:"tags"`
 	Mode                 string    `json:"mode"`
 	Reference            string    `json:"reference"`
@@ -150,6 +152,9 @@ func filterTransactions(raw TransactionsResponse, since time.Time) []FilteredTra
 
 		// Preserve category_id (always a string, not interface{})
 		transaction.CategoryID = t[i].CategoryID
+
+		// Preserve subcategory (category_icon_name) — Fold's 2nd-tier classification
+		transaction.Subcategory = t[i].CategoryIconName
 
 		// Preserve notes if available
 		if t[i].Notes != nil {

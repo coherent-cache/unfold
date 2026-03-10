@@ -15,6 +15,7 @@ type Transactions struct {
 	Narration            string
 	Category             string
 	CategoryID           string
+	Subcategory          string
 	Tags                 string
 	Mode                 string
 	Reference            string

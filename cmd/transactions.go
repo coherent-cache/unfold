@@ -99,6 +99,7 @@ func writeToDb(t api.FilteredTransactions) {
 		AccountID:            t.AccountID,
 		Category:             t.Category,
 		CategoryID:           t.CategoryID,
+		Subcategory:          t.Subcategory,
 		Tags:                 t.Tags,
 		Mode:                 t.Mode,
 		Reference:            t.Reference,
