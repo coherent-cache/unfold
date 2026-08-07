@@ -67,6 +67,10 @@ func RefreshOrFail() {
 
 	viper.Set("token.access", access)
 	viper.Set("token.refresh", refresh)
+	// Persist immediately: Fold rotates the refresh token server-side, so if
+	// the process dies before main's deferred WriteConfig runs, the only valid
+	// refresh token is lost and the user is forced to re-login.
+	viper.WriteConfig()
 
 	log.Debug().Msg("Refreshed tokens")
 }

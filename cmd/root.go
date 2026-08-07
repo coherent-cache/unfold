@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"os"
+	"path/filepath"
 	"runtime"
 
 	"github.com/google/uuid"
@@ -41,6 +42,16 @@ func initConfig() {
 
 	// Config File
 	if cfgFile != "" {
+		// An explicit --config path is how multi-account use selects which
+		// token/device_hash set to load. The path may point at a brand-new
+		// account with no existing file or parent directory yet.
+		dir := filepath.Dir(cfgFile)
+		if _, err := os.Stat(dir); os.IsNotExist(err) {
+			if err := os.MkdirAll(dir, 0700); err != nil {
+				log.Error().Err(err).Msg("Failed to create the config directory")
+				runtime.Goexit()
+			}
+		}
 		viper.SetConfigFile(cfgFile)
 	} else {
 		cfgDir, err := os.UserConfigDir()
@@ -57,10 +68,15 @@ func initConfig() {
 		viper.AddConfigPath(dir)
 		viper.SetConfigType("yaml")
 		viper.SetConfigName("config")
-
-		viper.SetDefault("device_hash", uuid.NewString())
-		viper.SafeWriteConfig()
 	}
+
+	// A device_hash must exist before the first API request in any command.
+	// Setting the default here (not only in the no---config branch) means an
+	// explicit --config account also gets one; a value already present in the
+	// config file wins over this default, so once persisted it stays stable
+	// across runs instead of being regenerated.
+	viper.SetDefault("device_hash", uuid.NewString())
+	viper.SafeWriteConfig()
 
 	viper.AutomaticEnv()
 
