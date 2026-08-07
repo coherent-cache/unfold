@@ -67,7 +67,7 @@ func setupTransactionsCmdHandler(cmd *cobra.Command, args []string) {
 		})
 
 		go c.Start()
-		sig := make(chan os.Signal)
+		sig := make(chan os.Signal, 1)
 		signal.Notify(sig, os.Interrupt, os.Kill)
 		<-sig
 	}
@@ -91,8 +91,12 @@ func writeToDb(t api.FilteredTransactions) {
 		UUID:                 t.UUID,
 		Timestamp:            t.TxnTimestamp,
 		Amount:               t.Amount,
+		SourceAmount:         t.SourceAmount,
 		Type:                 t.Type,
+		Source:               t.Source,
 		Merchant:             t.Merchant,
+		MerchantName:         t.MerchantName,
+		MerchantType:         t.MerchantType,
 		MerchantAddress:      t.MerchantAddress,
 		Narration:            t.Narration,
 		CurrentBalance:       t.CurrentBalance,
@@ -101,6 +105,7 @@ func writeToDb(t api.FilteredTransactions) {
 		Category:             t.Category,
 		CategoryID:           t.CategoryID,
 		Subcategory:          t.Subcategory,
+		SubcategoryID:        t.SubcategoryID,
 		Tags:                 t.Tags,
 		Kind:                 t.Kind,
 		Mode:                 t.Mode,
@@ -117,6 +122,11 @@ func writeToDb(t api.FilteredTransactions) {
 		AccountIn:            t.AccountIn,
 		ContactID:            t.ContactID,
 		GroupIDs:             t.GroupIDs,
+		Currency:             t.Currency,
+		SourceCurrency:       t.SourceCurrency,
+		UserManualAdded:      t.UserManualAdded,
+		SplitType:            t.SplitType,
+		ParentTransactionID:  t.ParentTransactionID,
 		F1PredictedCategory:  t.F1PredictedCategory,
 		F1PredictedMerchant:  t.F1PredictedMerchant,
 	})
@@ -141,7 +151,7 @@ func syncLedger(filename string) {
 		}
 
 		amountPrefix := ""
-		if t.Type == "INCOMING" {
+		if t.Type == "CREDIT" {
 			amountPrefix = "-"
 		}
 		p := ledger.Posting{

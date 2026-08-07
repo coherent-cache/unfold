@@ -1,11 +1,9 @@
 package api
 
 import (
-	b64 "encoding/base64"
 	"encoding/json"
 	"errors"
-	"math/rand"
-	"strconv"
+	"strings"
 	"time"
 
 	"github.com/rs/zerolog/log"
@@ -19,49 +17,52 @@ type TransactionsResponse struct {
 	} `json:"meta"`
 	Data struct {
 		Transactions []struct {
-			UUID                         string      `json:"uuid"`
-			Amount                       float64     `json:"amount"`
-			CurrentBalance               float64     `json:"current_balance"`
-			TxnTimestamp                 time.Time   `json:"txn_timestamp"`
-			TxnDate                      time.Time   `json:"txn_date"`
-			IsValidTime                  bool        `json:"is_valid_time"`
-			Mode                         string      `json:"mode"`
-			Type                         string      `json:"type"`
-			Narration                    string      `json:"narration"`
-			Category                     interface{} `json:"category"`
-			CategoryID                   string      `json:"category_id"`
-			CategoryIcon                 interface{} `json:"category_icon"`
-			CategoryIconName             string      `json:"category_icon_name"`
-			Merchant                     interface{} `json:"merchant"`
-			MerchantIcon                 interface{} `json:"merchant_icon"`
-			MerchantAddress              interface{} `json:"merchant_address"`
-			AccountID                    string      `json:"account_id"`
-			Tags                         interface{} `json:"tags"`
-			Kind                         string      `json:"kind"`
-			FinancialInformationProvider struct {
-				UUID    string `json:"uuid"`
-				Name    string `json:"name"`
-				FipID   string `json:"fip_id"`
-				LogoURL string `json:"logo_url"`
+			UUID           string    `json:"uuid"`
+			Amount         float64   `json:"amount"`
+			SourceAmount   float64   `json:"source_amount"`
+			CurrentBalance float64   `json:"current_balance"`
+			TxnTimestamp   time.Time `json:"txn_timestamp"`
+			Mode           string    `json:"mode"`
+			Type           string    `json:"type"`
+			Source         string    `json:"source"`
+			Narration      string    `json:"narration"`
+			Category       *struct {
+				ID            string `json:"id"`
+				SubcategoryID string `json:"subcategory_id"`
+			} `json:"category"`
+			Merchant *struct {
+				Name    string          `json:"name"`
+				Type    string          `json:"type"`
+				Address json.RawMessage `json:"address"`
+			} `json:"merchant"`
+			AccountID                      string          `json:"account_id"`
+			FinancialInformationProviderID string          `json:"financial_information_provider_id"`
+			Tags                           json.RawMessage `json:"tags"`
+			Kind                           string          `json:"kind"`
+			Notes                          json.RawMessage `json:"notes"`
+			ExcludedFromCashFlow           bool            `json:"excluded_from_cash_flow"`
+			IsBookmarked                   bool            `json:"is_bookmarked"`
+			TransactionID                  string          `json:"transaction_id"`
+			Reference                      string          `json:"reference"`
+			Summary                        string          `json:"summary"`
+			BeforeFoldAccount              bool            `json:"before_fold_account"`
+			Via                            json.RawMessage `json:"via"`
+			AccountIn                      json.RawMessage `json:"account_in"`
+			Refund                         *struct {
+				Status     string          `json:"status"`
+				ReceivedOn json.RawMessage `json:"received_on"`
+			} `json:"refund"`
+			GroupIDs                     json.RawMessage `json:"group_ids"`
+			ContactID                    json.RawMessage `json:"contact_id"`
+			IsF1Predicted                json.RawMessage `json:"is_f1_predicted"`
+			Currency                     string          `json:"currency"`
+			SourceCurrency               string          `json:"source_currency"`
+			UserManualAdded              *bool           `json:"user_manual_added"`
+			SplitType                    string          `json:"split_type"`
+			ParentTransactionID          string          `json:"parent_transaction_id"`
+			FinancialInformationProvider *struct {
+				Name string `json:"name"`
 			} `json:"financial_information_provider"`
-			Notes                interface{}   `json:"notes"`
-			ExcludedFromCashFlow bool          `json:"excluded_from_cash_flow"`
-			IsBookmarked         bool          `json:"is_bookmarked"`
-			TransactionID        string        `json:"transaction_id"`
-			Reference            string        `json:"reference"`
-			ExtractedTime        interface{}   `json:"extracted_time"`
-			Summary              string        `json:"summary"`
-			InvalidTxnID         bool          `json:"invalid_txn_id"`
-			BeforeFoldAccount    bool          `json:"before_fold_account"`
-			Via                  interface{}   `json:"via"`
-			AccountIn            interface{}   `json:"account_in"`
-			RefundStatus         string        `json:"refund_status"`
-			NotifyOnRefund       bool          `json:"notify_on_refund"`
-			RefundReceivedOn     interface{}   `json:"refund_received_on"`
-			Receipts             []interface{} `json:"receipts"`
-			GroupIds             interface{}   `json:"group_ids"`
-			ContactID            interface{}   `json:"contact_id"`
-			IsF1Predicted        interface{}   `json:"is_f1_predicted"`
 		} `json:"transactions"`
 		Counts []struct {
 			Date              string `json:"date"`
@@ -79,17 +80,22 @@ type TransactionsResponse struct {
 type FilteredTransactions struct {
 	UUID                 string    `json:"uuid"`
 	Amount               float64   `json:"amount"`
+	SourceAmount         float64   `json:"source_amount"`
 	CurrentBalance       float64   `json:"current_balance"`
 	TxnTimestamp         time.Time `json:"txn_timestamp"`
 	Type                 string    `json:"type"`
+	Source               string    `json:"source"`
 	Account              string    `json:"account"`
 	AccountID            string    `json:"account_id"`
 	Merchant             string    `json:"merchant"`
+	MerchantName         string    `json:"merchant_name"`
+	MerchantType         string    `json:"merchant_type"`
 	MerchantAddress      string    `json:"merchant_address"`
 	Narration            string    `json:"narration"`
 	Category             string    `json:"category"`
 	CategoryID           string    `json:"category_id"`
 	Subcategory          string    `json:"subcategory"`
+	SubcategoryID        string    `json:"subcategory_id"`
 	Tags                 string    `json:"tags"`
 	Kind                 string    `json:"kind"`
 	Mode                 string    `json:"mode"`
@@ -106,6 +112,11 @@ type FilteredTransactions struct {
 	AccountIn            string    `json:"account_in"`
 	ContactID            string    `json:"contact_id"`
 	GroupIDs             string    `json:"group_ids"`
+	Currency             string    `json:"currency"`
+	SourceCurrency       string    `json:"source_currency"`
+	UserManualAdded      bool      `json:"user_manual_added"`
+	SplitType            string    `json:"split_type"`
+	ParentTransactionID  string    `json:"parent_transaction_id"`
 	F1PredictedCategory  bool      `json:"f1_predicted_category"`
 	F1PredictedMerchant  bool      `json:"f1_predicted_merchant"`
 }
@@ -114,16 +125,11 @@ type TransactionsReturn struct {
 	Transactions []FilteredTransactions
 }
 
-func randomCursor() string {
-	return strconv.Itoa(10000000 + rand.Intn(89999999))
-}
-
 func filterTransactions(raw TransactionsResponse, since time.Time) []FilteredTransactions {
-	transactions := make([]FilteredTransactions, 0)
+	transactions := make([]FilteredTransactions, 0, len(raw.Data.Transactions))
 
 	t := raw.Data.Transactions
 	for i := 0; i < len(t); i++ {
-
 		if t[i].TxnTimestamp.Before(since) {
 			break
 		}
@@ -131,8 +137,10 @@ func filterTransactions(raw TransactionsResponse, since time.Time) []FilteredTra
 		transaction := FilteredTransactions{
 			UUID:                 t[i].UUID,
 			Amount:               t[i].Amount,
-			Type:                 t[i].Type,
-			Account:              t[i].FinancialInformationProvider.Name,
+			SourceAmount:         t[i].SourceAmount,
+			Type:                 normalizeFoldAPIType(t[i].Type),
+			Source:               t[i].Source,
+			Account:              t[i].FinancialInformationProviderID,
 			AccountID:            t[i].AccountID,
 			Merchant:             t[i].Narration,
 			Narration:            t[i].Narration,
@@ -145,82 +153,45 @@ func filterTransactions(raw TransactionsResponse, since time.Time) []FilteredTra
 			IsBookmarked:         t[i].IsBookmarked,
 			Summary:              t[i].Summary,
 			TransactionID:        t[i].TransactionID,
-			RefundStatus:         t[i].RefundStatus,
 			BeforeFoldAccount:    t[i].BeforeFoldAccount,
+			Tags:                 jsonValue(t[i].Tags),
+			Notes:                jsonString(t[i].Notes),
+			Via:                  jsonValue(t[i].Via),
+			AccountIn:            jsonValue(t[i].AccountIn),
+			ContactID:            jsonString(t[i].ContactID),
+			GroupIDs:             jsonValue(t[i].GroupIDs),
+			Currency:             t[i].Currency,
+			SourceCurrency:       t[i].SourceCurrency,
+			UserManualAdded:      t[i].UserManualAdded != nil && *t[i].UserManualAdded,
+			SplitType:            t[i].SplitType,
+			ParentTransactionID:  t[i].ParentTransactionID,
 		}
 
-		// Use Fold's F1 classifier if this transaction was classified
-		if t[i].Merchant != nil {
-			transaction.Merchant = t[i].Merchant.(string)
+		if t[i].FinancialInformationProvider != nil && t[i].FinancialInformationProvider.Name != "" {
+			transaction.Account = t[i].FinancialInformationProvider.Name
 		}
-
-		// Preserve category if available
 		if t[i].Category != nil {
-			transaction.Category = t[i].Category.(string)
+			transaction.CategoryID = t[i].Category.ID
+			transaction.SubcategoryID = t[i].Category.SubcategoryID
 		}
-
-		// Preserve category_id (always a string, not interface{})
-		transaction.CategoryID = t[i].CategoryID
-
-		// Preserve subcategory (category_icon_name) — Fold's 2nd-tier classification
-		transaction.Subcategory = t[i].CategoryIconName
-
-		// Preserve merchant_address if available
-		if t[i].MerchantAddress != nil {
-			transaction.MerchantAddress = t[i].MerchantAddress.(string)
-		}
-
-		// Preserve via if available
-		if t[i].Via != nil {
-			if viaBytes, err := json.Marshal(t[i].Via); err == nil {
-				transaction.Via = string(viaBytes)
+		if t[i].Merchant != nil {
+			transaction.MerchantName = t[i].Merchant.Name
+			transaction.MerchantType = t[i].Merchant.Type
+			transaction.MerchantAddress = jsonValue(t[i].Merchant.Address)
+			if transaction.MerchantName != "" {
+				transaction.Merchant = transaction.MerchantName
 			}
 		}
-
-		// Preserve account_in if available
-		if t[i].AccountIn != nil {
-			if aiBytes, err := json.Marshal(t[i].AccountIn); err == nil {
-				transaction.AccountIn = string(aiBytes)
-			}
+		if t[i].Refund != nil {
+			transaction.RefundStatus = t[i].Refund.Status
+			transaction.RefundReceivedOn = jsonString(t[i].Refund.ReceivedOn)
 		}
 
-		// Preserve notes if available
-		if t[i].Notes != nil {
-			transaction.Notes = t[i].Notes.(string)
-		}
-
-		// Preserve tags as JSON string if available
-		if t[i].Tags != nil {
-			if tagsBytes, err := json.Marshal(t[i].Tags); err == nil {
-				transaction.Tags = string(tagsBytes)
-			}
-		}
-
-		// Preserve refund_received_on if available
-		if t[i].RefundReceivedOn != nil {
-			transaction.RefundReceivedOn = t[i].RefundReceivedOn.(string)
-		}
-
-		// Preserve contact_id if available
-		if t[i].ContactID != nil {
-			transaction.ContactID = t[i].ContactID.(string)
-		}
-
-		// Preserve group_ids as JSON string if available
-		if t[i].GroupIds != nil {
-			if gidBytes, err := json.Marshal(t[i].GroupIds); err == nil {
-				transaction.GroupIDs = string(gidBytes)
-			}
-		}
-
-		// Preserve F1 prediction flags
-		if pred, ok := t[i].IsF1Predicted.(map[string]interface{}); ok {
-			if v, ok := pred["category_or_subcategory"].(bool); ok {
-				transaction.F1PredictedCategory = v
-			}
-			if v, ok := pred["merchant"].(bool); ok {
-				transaction.F1PredictedMerchant = v
-			}
+		var predicted map[string]bool
+		if len(t[i].IsF1Predicted) > 0 && string(t[i].IsF1Predicted) != "null" {
+			_ = json.Unmarshal(t[i].IsF1Predicted, &predicted)
+			transaction.F1PredictedCategory = predicted["category_or_subcategory"]
+			transaction.F1PredictedMerchant = predicted["merchant"]
 		}
 
 		transactions = append(transactions, transaction)
@@ -230,20 +201,14 @@ func filterTransactions(raw TransactionsResponse, since time.Time) []FilteredTra
 }
 
 func Transactions(uuid string, since time.Time, till time.Time) (TransactionsReturn, error) {
-
 	RefreshOrFail()
 
-	req, _ := APIRequest("GET", Url("/v2/users/"+uuid+"/transactions"), nil)
-
-	randomCursor := randomCursor() + "," + till.Format(time.RFC3339)
-	log.Debug().Msg("Random cursor generated: " + randomCursor)
-	randomCursorB64 := b64.StdEncoding.EncodeToString([]byte(randomCursor))
-	log.Debug().Msg("Random cursor base64 generated: " + randomCursorB64)
+	_ = till
+	req, _ := APIRequest("GET", Url("/v3/users/"+uuid+"/transactions"), nil)
 
 	q := req.URL.Query()
-	q.Add("filter", "all")
+	q.Add("limit", "100")
 	q.Add("count_by", "month")
-	q.Add("after", randomCursorB64)
 	req.URL.RawQuery = q.Encode()
 
 	resp, err := Client.Do(req)
@@ -271,7 +236,7 @@ func Transactions(uuid string, since time.Time, till time.Time) (TransactionsRet
 		log.Debug().Msgf("Transactions response body: %+v", data.Data.Transactions[0].TxnTimestamp)
 		ret.Transactions = append(ret.Transactions, filterTransactions(data, since)...)
 
-		for len(data.Data.Transactions) > 0 && data.Data.Transactions[len(data.Data.Transactions)-1].TxnTimestamp.After(since) {
+		for len(data.Data.Transactions) > 0 && data.Data.After != "" && data.Data.Transactions[len(data.Data.Transactions)-1].TxnTimestamp.After(since) {
 			log.Debug().Msg("Fetching older transactions")
 
 			log.Debug().Msg("New cursor base64: " + data.Data.After)
@@ -303,4 +268,36 @@ func Transactions(uuid string, since time.Time, till time.Time) (TransactionsRet
 
 		return ret, nil
 	}
+}
+
+func normalizeFoldAPIType(value string) string {
+	switch strings.ToUpper(strings.TrimSpace(value)) {
+	case "OUTGOING":
+		return "DEBIT"
+	case "INCOMING":
+		return "CREDIT"
+	default:
+		return strings.ToUpper(strings.TrimSpace(value))
+	}
+}
+
+func jsonString(value json.RawMessage) string {
+	if len(value) == 0 || string(value) == "null" {
+		return ""
+	}
+	var text string
+	if err := json.Unmarshal(value, &text); err == nil {
+		return text
+	}
+	return ""
+}
+
+func jsonValue(value json.RawMessage) string {
+	if len(value) == 0 || string(value) == "null" {
+		return ""
+	}
+	if text := jsonString(value); text != "" {
+		return text
+	}
+	return string(value)
 }
