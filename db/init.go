@@ -18,7 +18,10 @@ func Init(dbPath string) {
 		runtime.Goexit()
 	}
 
-	Conn.AutoMigrate(&Transactions{})
+	if err := Conn.AutoMigrate(&Transactions{}); err != nil {
+		log.Error().Err(err).Msg("Failed to migrate the database schema")
+		runtime.Goexit()
+	}
 
 	log.Debug().Msg("Initiated a new database connection")
 }
